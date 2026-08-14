@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: inventory
+    description: Inventory item operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,146 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /inventory/items:
+    get:
+      operationId: listInventoryItems
+      tags: [inventory]
+      summary: List inventory items
+      description: Search and filter inventory items across their name, part number, category, description, dimensions, manufacturer, and location.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: subcategory
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Inventory items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+    post:
+      operationId: createInventoryItem
+      tags: [inventory]
+      summary: Create an inventory item
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryItemInput"
+      responses:
+        "201":
+          description: Created inventory item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+  /inventory/summary:
+    get:
+      operationId: getInventorySummary
+      tags: [inventory]
+      summary: Get inventory summary
+      responses:
+        "200":
+          description: Inventory summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventorySummary"
+  /inventory/items/{id}:
+    get:
+      operationId: getInventoryItem
+      tags: [inventory]
+      summary: Get an inventory item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Inventory item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "404":
+          description: Inventory item not found
+    patch:
+      operationId: updateInventoryItem
+      tags: [inventory]
+      summary: Update an inventory item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryItemUpdate"
+      responses:
+        "200":
+          description: Updated inventory item
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryItem"
+        "404":
+          description: Inventory item not found
+    delete:
+      operationId: deleteInventoryItem
+      tags: [inventory]
+      summary: Delete an inventory item
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Inventory item deleted
+        "404":
+          description: Inventory item not found
+  /inventory/items/{id}/similar:
+    get:
+      operationId: getSimilarInventoryItems
+      tags: [inventory]
+      summary: Get similar inventory items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Similar inventory items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SimilarInventoryItem"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +175,147 @@ components:
           type: string
       required:
         - status
+    InventoryItem:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        partNumber:
+          type: string
+        category:
+          type: string
+        subcategory:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        manufacturer:
+          type: ["string", "null"]
+        length:
+          type: ["number", "null"]
+        width:
+          type: ["number", "null"]
+        height:
+          type: ["number", "null"]
+        diameter:
+          type: ["number", "null"]
+        headWidth:
+          type: ["number", "null"]
+        unit:
+          type: string
+        quantity:
+          type: number
+        location:
+          type: string
+        imageUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - name
+        - partNumber
+        - category
+        - subcategory
+        - description
+        - manufacturer
+        - length
+        - width
+        - height
+        - diameter
+        - headWidth
+        - unit
+        - quantity
+        - location
+        - imageUrl
+        - createdAt
+        - updatedAt
+    InventoryItemInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        partNumber:
+          type: string
+          minLength: 1
+        category:
+          type: string
+          minLength: 1
+        subcategory:
+          type: ["string", "null"]
+        description:
+          type: ["string", "null"]
+        manufacturer:
+          type: ["string", "null"]
+        length:
+          type: ["number", "null"]
+        width:
+          type: ["number", "null"]
+        height:
+          type: ["number", "null"]
+        diameter:
+          type: ["number", "null"]
+        headWidth:
+          type: ["number", "null"]
+        unit:
+          type: string
+          default: mm
+        quantity:
+          type: number
+          minimum: 0
+        location:
+          type: string
+          minLength: 1
+        imageUrl:
+          type: ["string", "null"]
+      required:
+        - name
+        - partNumber
+        - category
+        - quantity
+        - location
+    InventoryItemUpdate:
+      allOf:
+        - $ref: "#/components/schemas/InventoryItemInput"
+    SimilarInventoryItem:
+      allOf:
+        - $ref: "#/components/schemas/InventoryItem"
+        - type: object
+          properties:
+            similarityScore:
+              type: number
+          required:
+            - similarityScore
+    InventorySummary:
+      type: object
+      properties:
+        totalItems:
+          type: number
+        totalUnits:
+          type: number
+        categories:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              itemCount:
+                type: number
+              unitCount:
+                type: number
+            required:
+              - name
+              - itemCount
+              - unitCount
+      required:
+        - totalItems
+        - totalUnits
+        - categories
 
