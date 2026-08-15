@@ -117,6 +117,46 @@ export const GetInventorySummaryResponse = zod.object({
 
 
 /**
+ * @summary List inventory categories
+ */
+export const ListInventoryCategoriesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "itemCount": zod.number(),
+  "unitCount": zod.number()
+})
+export const ListInventoryCategoriesResponse = zod.array(ListInventoryCategoriesResponseItem)
+
+
+/**
+ * @summary Create an inventory category
+ */
+
+
+
+export const CreateInventoryCategoryBody = zod.object({
+  "name": zod.string().min(1)
+})
+
+export const CreateInventoryCategoryResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "itemCount": zod.number(),
+  "unitCount": zod.number()
+})
+
+
+/**
+ * @summary Delete an inventory category
+ */
+export const DeleteInventoryCategoryParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteInventoryCategoryResponse = zod.void()
+
+
+/**
  * @summary Get an inventory item
  */
 export const GetInventoryItemParams = zod.object({

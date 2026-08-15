@@ -86,6 +86,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/InventorySummary"
+  /inventory/categories:
+    get:
+      operationId: listInventoryCategories
+      tags: [inventory]
+      summary: List inventory categories
+      responses:
+        "200":
+          description: Inventory categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryCategory"
+    post:
+      operationId: createInventoryCategory
+      tags: [inventory]
+      summary: Create an inventory category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryCategoryInput"
+      responses:
+        "201":
+          description: Created inventory category
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryCategory"
+        "409":
+          description: Category already exists
+  /inventory/categories/{id}:
+    delete:
+      operationId: deleteInventoryCategory
+      tags: [inventory]
+      summary: Delete an inventory category
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Inventory category deleted
+        "404":
+          description: Inventory category not found
+        "409":
+          description: Category still contains inventory items
   /inventory/items/{id}:
     get:
       operationId: getInventoryItem
@@ -235,6 +286,30 @@ components:
         - imageUrl
         - createdAt
         - updatedAt
+    InventoryCategory:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        itemCount:
+          type: number
+        unitCount:
+          type: number
+      required:
+        - id
+        - name
+        - itemCount
+        - unitCount
+    InventoryCategoryInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+      required:
+        - name
     InventoryItemInput:
       type: object
       properties:

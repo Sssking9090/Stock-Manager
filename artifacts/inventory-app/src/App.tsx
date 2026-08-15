@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Ruler,
   Search,
+  Tags,
   Trash2,
   Warehouse,
   X,
@@ -21,15 +22,20 @@ import {
 import {
   getGetInventoryItemQueryKey,
   getGetInventorySummaryQueryKey,
+  getListInventoryCategoriesQueryKey,
   getListInventoryItemsQueryKey,
+  useCreateInventoryCategory,
   useCreateInventoryItem,
+  useDeleteInventoryCategory,
   useDeleteInventoryItem,
   useGetInventoryItem,
   useGetInventorySummary,
   useGetSimilarInventoryItems,
+  useListInventoryCategories,
   useListInventoryItems,
   useUpdateInventoryItem,
   type InventoryItem,
+  type InventoryCategory,
   type InventoryItemInput,
 } from '@workspace/api-client-react';
 import { useForm } from 'react-hook-form';
@@ -55,6 +61,7 @@ function LogoMark() {
 function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const isWorkspace = location === '/';
+  const isCategories = location === '/categories';
   return (
     <div className="min-h-[100dvh] bg-[hsl(var(--background))] text-[hsl(var(--foreground))]">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-[245px] flex-col border-r border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar))] text-[hsl(var(--sidebar-foreground))] md:flex">
@@ -70,6 +77,9 @@ function Shell({ children }: { children: ReactNode }) {
           <Link href="/" className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${isWorkspace ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-foreground))]' : 'text-[hsl(var(--sidebar-foreground)/.66)] hover:bg-[hsl(var(--sidebar-accent))] hover:text-[hsl(var(--sidebar-foreground))]'}`} data-testid="link-inventory">
             <LayoutGrid size={17} /><span>Inventory</span>{isWorkspace && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[hsl(var(--accent))]" />}
           </Link>
+           <Link href="/categories" className={`group mt-1 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm ${isCategories ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-foreground))]' : 'text-[hsl(var(--sidebar-foreground)/.66)] hover:bg-[hsl(var(--sidebar-accent))] hover:text-[hsl(var(--sidebar-foreground))]'}`} data-testid="link-categories">
+             <Tags size={17} /><span>Categories</span>{isCategories && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[hsl(var(--accent))]" />}
+           </Link>
         </nav>
         <div className="mt-auto border-t border-[hsl(var(--sidebar-border))] px-6 py-5">
           <div className="flex items-center gap-3">
@@ -81,7 +91,7 @@ function Shell({ children }: { children: ReactNode }) {
 
       <header className="sticky top-0 z-10 flex h-[66px] items-center justify-between border-b border-[hsl(var(--border))] bg-[hsl(var(--background)/.93)] px-5 backdrop-blur md:ml-[245px] md:px-9">
         <Link href="/" className="flex items-center gap-2 md:hidden" data-testid="link-mobile-logo"><LogoMark /><span className="text-sm font-semibold">Benchstock</span></Link>
-        <div className="hidden items-center gap-2 text-xs text-[hsl(var(--muted-foreground))] md:flex"><span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--accent))]" />Workshop / <span className="text-[hsl(var(--foreground))]">{isWorkspace ? 'Inventory' : 'Item record'}</span></div>
+         <div className="hidden items-center gap-2 text-xs text-[hsl(var(--muted-foreground))] md:flex"><span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--accent))]" />Workshop / <span className="text-[hsl(var(--foreground))]">{isWorkspace ? 'Inventory' : isCategories ? 'Categories' : 'Item record'}</span></div>
         <div className="flex items-center gap-2 text-[11px] text-[hsl(var(--muted-foreground))]"><span className="hidden sm:inline">Stockroom sync</span><span className="h-1.5 w-1.5 rounded-full bg-[hsl(143_28%_44%)]" /><span className="font-mono text-[10px]">LIVE</span></div>
       </header>
       <main className="md:ml-[245px]">{children}</main>
@@ -110,9 +120,10 @@ function HomePage() {
   const filters = useMemo(() => ({ search: search.trim() || undefined, category: category || undefined, subcategory: subcategory || undefined }), [search, category, subcategory]);
   const itemsQuery = useListInventoryItems(filters);
   const summaryQuery = useGetInventorySummary();
+  const categoriesQuery = useListInventoryCategories();
   const items = itemsQuery.data ?? [];
-  const categories = summaryQuery.data?.categories ?? [];
-  const refresh = () => { void queryClient.invalidateQueries({ queryKey: getListInventoryItemsQueryKey() }); void queryClient.invalidateQueries({ queryKey: getGetInventorySummaryQueryKey() }); toast({ title: 'Inventory refreshed', description: 'The latest stockroom records are now in view.' }); };
+  const categories = categoriesQuery.data ?? [];
+  const refresh = () => { void queryClient.invalidateQueries({ queryKey: getListInventoryItemsQueryKey() }); void queryClient.invalidateQueries({ queryKey: getGetInventorySummaryQueryKey() }); void queryClient.invalidateQueries({ queryKey: getListInventoryCategoriesQueryKey() }); toast({ title: 'Inventory refreshed', description: 'The latest stockroom records are now in view.' }); };
 
   return <div className="mx-auto max-w-[1370px] px-5 pb-12 pt-8 md:px-9 md:pt-10">
     <div className="mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
@@ -135,10 +146,10 @@ function HomePage() {
         <div className="mb-5 flex items-center justify-between"><div className="font-mono text-[10px] uppercase tracking-[.17em] text-[hsl(var(--muted-foreground))]">{itemsQuery.isLoading ? 'Reading stockroom…' : `${items.length} ${items.length === 1 ? 'record' : 'records'}`}</div>{(category || subcategory) && <button type="button" onClick={() => { setCategory(''); setSubcategory(''); }} className="text-xs font-medium text-[hsl(var(--accent))] hover:underline" data-testid="button-clear-filters">Clear filters</button>}</div>
         {itemsQuery.isLoading ? <SkeletonRows /> : itemsQuery.isError ? <ErrorState onRetry={() => void itemsQuery.refetch()} /> : items.length === 0 ? <EmptyState hasFilters={Boolean(search || category || subcategory)} onClear={() => { setSearch(''); setCategory(''); setSubcategory(''); }} /> : <div className="space-y-2">{items.map((item, index) => <InventoryRow item={item} key={item.id} index={index} />)}</div>}
       </section>
-      <aside className="h-fit rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card)/.72)] p-4 xl:mt-[55px]">
+       <aside className="h-fit rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card)/.72)] p-4 xl:mt-[55px]">
         <div className="mb-4 flex items-center justify-between"><h2 className="text-sm font-semibold">Browse by category</h2><ChevronDown size={15} className="text-[hsl(var(--muted-foreground))]" /></div>
-        <div className="space-y-1.5">{categories.length === 0 && summaryQuery.isLoading ? [1, 2, 3].map((row) => <div key={row} className="h-9 animate-pulse rounded-lg bg-[hsl(var(--muted))]" />) : categories.map((entry, index) => <button type="button" key={entry.name} onClick={() => setCategory(category === entry.name ? '' : entry.name)} className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-xs ${category === entry.name ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]'}`} data-testid={`button-category-${entry.name}`}><span className={`h-2 w-2 rounded-full bg-[hsl(var(--${categoryColor(index)}))]`} /><span className="flex-1">{entry.name}</span><span className="font-mono text-[10px] opacity-70">{entry.itemCount}</span></button>)}</div>
-        <div className="mt-5 border-t border-[hsl(var(--border))] pt-4"><label className="mb-2 block font-mono text-[9px] uppercase tracking-[.16em] text-[hsl(var(--muted-foreground))]">Subcategory</label><input value={subcategory} onChange={(event) => setSubcategory(event.target.value)} placeholder="e.g. fasteners" className="h-9 w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2.5 text-xs outline-none focus:border-[hsl(var(--accent))]" data-testid="input-subcategory-filter" /></div>
+         <div className="space-y-1.5">{categoriesQuery.isLoading ? [1, 2, 3].map((row) => <div key={row} className="h-9 animate-pulse rounded-lg bg-[hsl(var(--muted))]" />) : categories.map((entry, index) => <button type="button" key={entry.id} onClick={() => setCategory(category === entry.name ? '' : entry.name)} className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-xs ${category === entry.name ? 'bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))]' : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--muted))] hover:text-[hsl(var(--foreground))]'}`} data-testid={`button-category-${entry.name}`}><span className={`h-2 w-2 rounded-full bg-[hsl(var(--${categoryColor(index)}))]`} /><span className="flex-1">{entry.name}</span><span className="font-mono text-[10px] opacity-70">{entry.itemCount}</span></button>)}</div>
+         <div className="mt-5 border-t border-[hsl(var(--border))] pt-4"><label className="mb-2 block font-mono text-[9px] uppercase tracking-[.16em] text-[hsl(var(--muted-foreground))]">Subcategory</label><input value={subcategory} onChange={(event) => setSubcategory(event.target.value)} placeholder="e.g. fasteners" className="h-9 w-full rounded-md border border-[hsl(var(--input))] bg-transparent px-2.5 text-xs outline-none focus:border-[hsl(var(--accent))]" data-testid="input-subcategory-filter" /><Link href="/categories" className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-medium text-[hsl(var(--accent))] hover:underline" data-testid="link-manage-categories"><Tags size={12} /> Manage categories</Link></div>
       </aside>
     </div>
   </div>;
@@ -163,6 +174,71 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function EmptyState({ hasFilters, onClear }: { hasFilters: boolean; onClear: () => void }) {
   return <div className="rounded-xl border border-dashed border-[hsl(var(--border))] bg-[hsl(var(--card)/.5)] px-6 py-16 text-center" data-testid="status-inventory-empty"><div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-[hsl(var(--muted))] text-[hsl(var(--muted-foreground))]"><Search size={20} /></div><h3 className="text-sm font-semibold">{hasFilters ? 'No parts match that search' : 'The stockroom is ready for its first part'}</h3><p className="mx-auto mt-1 max-w-xs text-xs leading-5 text-[hsl(var(--muted-foreground))]">{hasFilters ? 'Try another name, category, or location.' : 'Add a record when a new piece finds its home.'}</p>{hasFilters && <button type="button" onClick={onClear} className="mt-4 text-xs font-medium text-[hsl(var(--accent))] hover:underline" data-testid="button-empty-clear">Clear search</button>}</div>;
+}
+
+type CategoryFormValues = { name: string };
+
+function CategoriesPage() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const categoriesQuery = useListInventoryCategories();
+  const createMutation = useCreateInventoryCategory();
+  const deleteMutation = useDeleteInventoryCategory();
+  const form = useForm<CategoryFormValues>({ defaultValues: { name: '' } });
+  const categories = categoriesQuery.data ?? [];
+
+  const onSubmit = (values: CategoryFormValues) => {
+    const name = values.name.trim();
+    if (!name) return;
+    createMutation.mutate(
+      { data: { name } },
+      {
+        onSuccess: () => {
+          form.reset();
+          void queryClient.invalidateQueries({ queryKey: getListInventoryCategoriesQueryKey() });
+          void queryClient.invalidateQueries({ queryKey: getGetInventorySummaryQueryKey() });
+          toast({ title: 'Category added', description: `${name} is ready for new inventory items.` });
+        },
+        onError: () => toast({ title: 'Couldn’t add category', description: 'A category with that name may already exist.', variant: 'destructive' }),
+      },
+    );
+  };
+
+  const removeCategory = (category: InventoryCategory) => {
+    if (category.itemCount > 0) {
+      toast({ title: 'Move items first', description: `${category.name} still contains ${category.itemCount} ${category.itemCount === 1 ? 'item' : 'items'}.`, variant: 'destructive' });
+      return;
+    }
+    deleteMutation.mutate(
+      { id: category.id },
+      {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: getListInventoryCategoriesQueryKey() });
+          void queryClient.invalidateQueries({ queryKey: getGetInventorySummaryQueryKey() });
+          toast({ title: 'Category removed', description: `${category.name} was removed.` });
+        },
+        onError: () => toast({ title: 'Couldn’t remove category', description: 'Move or remove its items before trying again.', variant: 'destructive' }),
+      },
+    );
+  };
+
+  return <div className="mx-auto max-w-[980px] px-5 pb-16 pt-8 md:px-9 md:pt-10">
+    <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+      <div className="animate-rise-in"><div className="mb-3 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[.18em] text-[hsl(var(--accent))]"><Tags size={13} /> Organization</div><h1 className="text-[clamp(2rem,4vw,3.3rem)] font-semibold leading-[.95] tracking-[-.06em]">Shape your<br /><span className="text-[hsl(var(--muted-foreground))]">stockroom.</span></h1><p className="mt-4 max-w-[480px] text-sm leading-6 text-[hsl(var(--muted-foreground))]">Create the groups that match how your parts are stored. Items can be assigned to any saved category when you add or edit them.</p></div>
+      <Link href="/" className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[hsl(var(--border))] px-3.5 text-xs font-medium hover:bg-[hsl(var(--muted))]" data-testid="link-back-inventory"><ArrowLeft size={15} /> Back to inventory</Link>
+    </div>
+
+    <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="mb-8 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card)/.72)] p-5 md:p-6" data-testid="form-create-category">
+      <div className="mb-4 flex items-baseline justify-between gap-3"><div><h2 className="text-sm font-semibold">Add a category</h2><p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">Keep names short and easy to recognize on the shelf.</p></div><Plus size={17} className="text-[hsl(var(--accent))]" /></div>
+      <div className="flex flex-col gap-3 sm:flex-row"><input {...form.register('name', { required: 'Category name is required' })} placeholder="e.g. Safety equipment" className="field flex-1" data-testid="input-category-name" /><button type="submit" disabled={createMutation.isPending} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[hsl(var(--primary))] px-4 text-sm font-medium text-[hsl(var(--primary-foreground))] disabled:cursor-wait disabled:opacity-60" data-testid="button-add-category">{createMutation.isPending ? <RefreshCw size={15} className="animate-spin" /> : <Plus size={16} />}{createMutation.isPending ? 'Adding…' : 'Add category'}</button></div>
+      {form.formState.errors.name && <p className="mt-2 text-[10px] text-[hsl(var(--destructive))]">{form.formState.errors.name.message}</p>}
+    </form></Form>
+
+    <section aria-label="Saved categories">
+      <div className="mb-4 flex items-center justify-between"><div><div className="font-mono text-[10px] uppercase tracking-[.17em] text-[hsl(var(--muted-foreground))]">Saved groups</div><h2 className="mt-1 text-xl font-semibold tracking-[-.035em]">{categories.length} {categories.length === 1 ? 'category' : 'categories'}</h2></div></div>
+      {categoriesQuery.isLoading ? <div className="space-y-2">{[1, 2, 3].map((row) => <div key={row} className="h-[70px] animate-pulse rounded-xl bg-[hsl(var(--muted))]" />)}</div> : categoriesQuery.isError ? <ErrorState onRetry={() => void categoriesQuery.refetch()} /> : categories.length === 0 ? <div className="rounded-xl border border-dashed border-[hsl(var(--border))] px-6 py-14 text-center text-sm text-[hsl(var(--muted-foreground))]">No categories yet. Add one above to start organizing items.</div> : <div className="space-y-2">{categories.map((category, index) => <div key={category.id} className="flex items-center gap-3 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card)/.7)] p-3.5" data-testid={`row-category-${category.id}`}><div className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-[hsl(var(--${categoryColor(index)})/.14)] text-[hsl(var(--${categoryColor(index)}))]`}><Tags size={17} /></div><div className="min-w-0 flex-1"><div className="truncate text-sm font-semibold">{category.name}</div><div className="mt-1 font-mono text-[10px] text-[hsl(var(--muted-foreground))]">{category.itemCount} {category.itemCount === 1 ? 'item' : 'items'} · {category.unitCount} units</div></div><button type="button" onClick={() => removeCategory(category)} disabled={deleteMutation.isPending || category.itemCount > 0} title={category.itemCount > 0 ? 'Move or remove items before deleting this category' : 'Remove category'} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[hsl(var(--destructive)/.28)] px-2.5 text-xs font-medium text-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/.08)] disabled:cursor-not-allowed disabled:opacity-35" data-testid={`button-delete-category-${category.id}`}><Trash2 size={14} /> Remove</button></div>)}</div>}
+    </section>
+  </div>;
 }
 
 function ItemDetailPage() {
@@ -217,6 +293,7 @@ function ItemFormPage() {
   const isNew = !params.id || params.id === 'new';
   const id = Number(params.id);
   const itemQuery = useGetInventoryItem(id, { query: { enabled: !isNew && id > 0, queryKey: getGetInventoryItemQueryKey(id) } });
+  const categoriesQuery = useListInventoryCategories();
   const form = useForm<FormValues>({ defaultValues: blankValues });
   const createMutation = useCreateInventoryItem();
   const updateMutation = useUpdateInventoryItem();
@@ -239,7 +316,7 @@ function ItemFormPage() {
     <Link href={isNew ? '/' : `/items/${id}`} className="mb-7 inline-flex items-center gap-2 text-xs font-medium text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--accent))]" data-testid="link-cancel-form"><ArrowLeft size={15} /> {isNew ? 'Back to inventory' : 'Back to item'}</Link>
     <div className="mb-8"><div className="mb-2 font-mono text-[10px] uppercase tracking-[.18em] text-[hsl(var(--accent))]">{isNew ? 'New record' : 'Edit record'}</div><h1 className="text-3xl font-semibold tracking-[-.055em]">{isNew ? 'Add a part to the stockroom' : 'Update this part'}</h1><p className="mt-2 text-sm text-[hsl(var(--muted-foreground))]">{isNew ? 'Give this piece a clear name and a reliable home.' : 'Keep the physical record and the digital one in agreement.'}</p></div>
     <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-7" data-testid="form-inventory-item">
-      <FormSection title="Part identity" note="The details people will search first"><div className="grid gap-4 md:grid-cols-2"><Field label="Name" required error={form.formState.errors.name?.message}><input {...form.register('name', { required: 'Name is required' })} placeholder="e.g. M4 socket head cap screw" className="field" data-testid="input-item-name" /></Field><Field label="Part number" required error={form.formState.errors.partNumber?.message}><input {...form.register('partNumber', { required: 'Part number is required' })} placeholder="e.g. FST-M4-016" className="field font-mono" data-testid="input-item-part-number" /></Field><Field label="Category" required error={form.formState.errors.category?.message}><input {...form.register('category', { required: 'Category is required' })} placeholder="e.g. Fasteners" className="field" data-testid="input-item-category" /></Field><Field label="Subcategory"><input {...form.register('subcategory')} placeholder="e.g. Socket head" className="field" data-testid="input-item-subcategory" /></Field></div><Field label="Description"><textarea {...form.register('description')} rows={3} placeholder="A short note about this part, its use, or what makes it distinct." className="field min-h-[88px] resize-y py-2" data-testid="input-item-description" /></Field></FormSection>
+       <FormSection title="Part identity" note="The details people will search first"><div className="grid gap-4 md:grid-cols-2"><Field label="Name" required error={form.formState.errors.name?.message}><input {...form.register('name', { required: 'Name is required' })} placeholder="e.g. M4 socket head cap screw" className="field" data-testid="input-item-name" /></Field><Field label="Part number" required error={form.formState.errors.partNumber?.message}><input {...form.register('partNumber', { required: 'Part number is required' })} placeholder="e.g. FST-M4-016" className="field font-mono" data-testid="input-item-part-number" /></Field><Field label="Category" required error={form.formState.errors.category?.message}><select {...form.register('category', { required: 'Choose a category' })} className="field" data-testid="input-item-category" disabled={categoriesQuery.isLoading}><option value="">{categoriesQuery.isLoading ? 'Loading categories…' : 'Choose a category'}</option>{categoriesQuery.data?.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}</select>{!categoriesQuery.isLoading && categoriesQuery.data?.length === 0 && <Link href="/categories" className="mt-1 inline-flex text-[10px] font-medium text-[hsl(var(--accent))] hover:underline" data-testid="link-add-category-from-item">Add a category first</Link>}</Field><Field label="Subcategory"><input {...form.register('subcategory')} placeholder="e.g. Socket head" className="field" data-testid="input-item-subcategory" /></Field></div><Field label="Description"><textarea {...form.register('description')} rows={3} placeholder="A short note about this part, its use, or what makes it distinct." className="field min-h-[88px] resize-y py-2" data-testid="input-item-description" /></Field></FormSection>
        <FormSection title="Stock & location" note="The facts that keep a shelf honest"><div className="grid gap-4 sm:grid-cols-3"><Field label="Quantity" required><input type="number" min="0" {...form.register('quantity', { required: true })} className="field font-mono" data-testid="input-item-quantity" /></Field><Field label="Dimension unit"><input {...form.register('unit')} placeholder="mm" className="field font-mono" data-testid="input-item-unit" /></Field><Field label="Location" required><input {...form.register('location', { required: 'Location is required' })} placeholder="Bay B / Bin 04" className="field font-mono" data-testid="input-item-location" /></Field></div></FormSection>
       <FormSection title="Physical details" note="Optional measurements in millimetres"><div className="grid grid-cols-2 gap-4 sm:grid-cols-5"><Field label="Length"><input type="number" step="any" {...form.register('length')} placeholder="—" className="field font-mono" data-testid="input-item-length" /></Field><Field label="Width"><input type="number" step="any" {...form.register('width')} placeholder="—" className="field font-mono" data-testid="input-item-width" /></Field><Field label="Height"><input type="number" step="any" {...form.register('height')} placeholder="—" className="field font-mono" data-testid="input-item-height" /></Field><Field label="Diameter"><input type="number" step="any" {...form.register('diameter')} placeholder="—" className="field font-mono" data-testid="input-item-diameter" /></Field><Field label="Head width"><input type="number" step="any" {...form.register('headWidth')} placeholder="—" className="field font-mono" data-testid="input-item-head-width" /></Field></div></FormSection>
        <FormSection title="Source & reference" note="Useful context for the next person at the desk"><div className="grid gap-4 md:grid-cols-2"><Field label="Manufacturer"><input {...form.register('manufacturer')} placeholder="e.g. Würth" className="field" data-testid="input-item-manufacturer" /></Field><Field label="Image URL (optional)"><input type="url" {...form.register('imageUrl')} placeholder="https://…" className="field font-mono" data-testid="input-item-image-url" /></Field></div></FormSection>
@@ -262,7 +339,7 @@ function PageLoading() {
 
 function Router() {
   const [location] = useLocation();
-  return <ErrorBoundary resetKey={location}><Shell><Switch><Route path="/" component={HomePage} /><Route path="/items/new" component={ItemFormPage} /><Route path="/items/:id/edit" component={ItemFormPage} /><Route path="/items/:id" component={ItemDetailPage} /><Route component={NotFound} /></Switch></Shell></ErrorBoundary>;
+  return <ErrorBoundary resetKey={location}><Shell><Switch><Route path="/" component={HomePage} /><Route path="/categories" component={CategoriesPage} /><Route path="/items/new" component={ItemFormPage} /><Route path="/items/:id/edit" component={ItemFormPage} /><Route path="/items/:id" component={ItemDetailPage} /><Route component={NotFound} /></Switch></Shell></ErrorBoundary>;
 }
 
 function App() {

@@ -7,6 +7,8 @@
  */
 
 export * from './healthStatus';
+export * from './inventoryCategory';
+export * from './inventoryCategoryInput';
 export * from './inventoryItem';
 export * from './inventoryItemInput';
 export * from './inventoryItemUpdate';

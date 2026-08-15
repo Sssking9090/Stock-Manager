@@ -9,6 +9,23 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
+export const inventoryCategoriesTable = pgTable("inventory_categories", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const insertInventoryCategorySchema = createInsertSchema(
+  inventoryCategoriesTable,
+).omit({ id: true, createdAt: true });
+
+export type InsertInventoryCategory = z.infer<
+  typeof insertInventoryCategorySchema
+>;
+export type InventoryCategory = typeof inventoryCategoriesTable.$inferSelect;
+
 export const inventoryItemsTable = pgTable("inventory_items", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),

@@ -1,15 +1,23 @@
 import { and, asc, desc, eq, ilike, or, sql } from "drizzle-orm";
 import { Router, type IRouter } from "express";
-import { db, inventoryItemsTable } from "@workspace/db";
+import {
+  db,
+  inventoryCategoriesTable,
+  inventoryItemsTable,
+} from "@workspace/db";
 import {
   CreateInventoryItemBody,
   CreateInventoryItemResponse,
+  CreateInventoryCategoryBody,
+  CreateInventoryCategoryResponse,
+  DeleteInventoryCategoryParams,
   DeleteInventoryItemParams,
   GetInventoryItemParams,
   GetInventoryItemResponse,
   GetInventorySummaryResponse,
   GetSimilarInventoryItemsParams,
   GetSimilarInventoryItemsResponse,
+  ListInventoryCategoriesResponse,
   ListInventoryItemsQueryParams,
   ListInventoryItemsResponse,
   UpdateInventoryItemBody,
@@ -37,6 +45,105 @@ const dimensionSearchFields = [
   sql<string>`replace(lower(cast(${inventoryItemsTable.diameter} as text) || ${inventoryItemsTable.unit}), ' ', '')`,
   sql<string>`replace(lower(cast(${inventoryItemsTable.headWidth} as text) || ${inventoryItemsTable.unit}), ' ', '')`,
 ];
+
+async function categoryExists(name: string): Promise<boolean> {
+  const [category] = await db
+    .select({ id: inventoryCategoriesTable.id })
+    .from(inventoryCategoriesTable)
+    .where(ilike(inventoryCategoriesTable.name, name));
+  return Boolean(category);
+}
+
+router.get("/inventory/categories", async (_req, res): Promise<void> => {
+  const categories = await db
+    .select({
+      id: inventoryCategoriesTable.id,
+      name: inventoryCategoriesTable.name,
+      itemCount: sql<number>`count(${inventoryItemsTable.id})`,
+      unitCount: sql<number>`coalesce(sum(${inventoryItemsTable.quantity}), 0)`,
+    })
+    .from(inventoryCategoriesTable)
+    .leftJoin(
+      inventoryItemsTable,
+      eq(inventoryCategoriesTable.name, inventoryItemsTable.category),
+    )
+    .groupBy(inventoryCategoriesTable.id, inventoryCategoriesTable.name)
+    .orderBy(asc(inventoryCategoriesTable.name));
+
+  res.json(
+    ListInventoryCategoriesResponse.parse(
+      categories.map((category) => ({
+        id: category.id,
+        name: category.name,
+        itemCount: Number(category.itemCount),
+        unitCount: Number(category.unitCount),
+      })),
+    ),
+  );
+});
+
+router.post("/inventory/categories", async (req, res): Promise<void> => {
+  const parsed = CreateInventoryCategoryBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const name = parsed.data.name.trim();
+  if (await categoryExists(name)) {
+    res.status(409).json({ error: "A category with that name already exists" });
+    return;
+  }
+
+  const [category] = await db
+    .insert(inventoryCategoriesTable)
+    .values({ name })
+    .returning();
+
+  res.status(201).json(
+    CreateInventoryCategoryResponse.parse({
+      ...category,
+      itemCount: 0,
+      unitCount: 0,
+    }),
+  );
+});
+
+router.delete(
+  "/inventory/categories/:id",
+  async (req, res): Promise<void> => {
+    const params = DeleteInventoryCategoryParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+
+    const [category] = await db
+      .select()
+      .from(inventoryCategoriesTable)
+      .where(eq(inventoryCategoriesTable.id, params.data.id));
+    if (!category) {
+      res.status(404).json({ error: "Inventory category not found" });
+      return;
+    }
+
+    const [usage] = await db
+      .select({ itemCount: sql<number>`count(*)` })
+      .from(inventoryItemsTable)
+      .where(eq(inventoryItemsTable.category, category.name));
+    if (Number(usage?.itemCount ?? 0) > 0) {
+      res.status(409).json({
+        error: "Move or remove the items in this category before deleting it",
+      });
+      return;
+    }
+
+    await db
+      .delete(inventoryCategoriesTable)
+      .where(eq(inventoryCategoriesTable.id, category.id));
+    res.status(204).send();
+  },
+);
 
 router.get("/inventory/items", async (req, res): Promise<void> => {
   const parsed = ListInventoryItemsQueryParams.safeParse(req.query);
@@ -82,6 +189,11 @@ router.post("/inventory/items", async (req, res): Promise<void> => {
     return;
   }
 
+  if (!(await categoryExists(parsed.data.category))) {
+    res.status(400).json({ error: "Choose an existing inventory category" });
+    return;
+  }
+
   const [item] = await db
     .insert(inventoryItemsTable)
     .values({
@@ -111,13 +223,17 @@ router.get("/inventory/summary", async (_req, res): Promise<void> => {
     .from(inventoryItemsTable);
   const categories = await db
     .select({
-      name: inventoryItemsTable.category,
-      itemCount: sql<number>`count(*)`,
+      name: inventoryCategoriesTable.name,
+      itemCount: sql<number>`count(${inventoryItemsTable.id})`,
       unitCount: sql<number>`coalesce(sum(${inventoryItemsTable.quantity}), 0)`,
     })
-    .from(inventoryItemsTable)
-    .groupBy(inventoryItemsTable.category)
-    .orderBy(desc(sql`count(*)`), asc(inventoryItemsTable.category));
+    .from(inventoryCategoriesTable)
+    .leftJoin(
+      inventoryItemsTable,
+      eq(inventoryCategoriesTable.name, inventoryItemsTable.category),
+    )
+    .groupBy(inventoryCategoriesTable.name)
+    .orderBy(desc(sql`count(${inventoryItemsTable.id})`), asc(inventoryCategoriesTable.name));
 
   res.json(
     GetInventorySummaryResponse.parse({
@@ -159,6 +275,10 @@ router.patch("/inventory/items/:id", async (req, res): Promise<void> => {
   const parsed = UpdateInventoryItemBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  if (!(await categoryExists(parsed.data.category))) {
+    res.status(400).json({ error: "Choose an existing inventory category" });
     return;
   }
 

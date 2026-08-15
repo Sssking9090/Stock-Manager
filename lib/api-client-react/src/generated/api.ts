@@ -21,6 +21,8 @@ import type {
 
 import type {
   HealthStatus,
+  InventoryCategory,
+  InventoryCategoryInput,
   InventoryItem,
   InventoryItemInput,
   InventoryItemUpdate,
@@ -366,6 +368,225 @@ export function useGetInventorySummary<TData = Awaited<ReturnType<typeof getInve
 
 
 
+
+export const getListInventoryCategoriesUrl = () => {
+
+
+
+
+  return `/api/inventory/categories`
+}
+
+/**
+ * @summary List inventory categories
+ */
+export const listInventoryCategories = async ( options?: Parameters<typeof customFetch>[1]): Promise<InventoryCategory[]> => {
+
+  return customFetch<InventoryCategory[]>(getListInventoryCategoriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListInventoryCategoriesQueryKey = () => {
+    return [
+    `/api/inventory/categories`
+    ] as const;
+    }
+
+
+export const getListInventoryCategoriesQueryOptions = <TData = Awaited<ReturnType<typeof listInventoryCategories>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInventoryCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListInventoryCategoriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listInventoryCategories>>> = ({ signal }) => listInventoryCategories({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listInventoryCategories>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListInventoryCategoriesQueryResult = NonNullable<Awaited<ReturnType<typeof listInventoryCategories>>>
+export type ListInventoryCategoriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List inventory categories
+ */
+
+export function useListInventoryCategories<TData = Awaited<ReturnType<typeof listInventoryCategories>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listInventoryCategories>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListInventoryCategoriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateInventoryCategoryUrl = () => {
+
+
+
+
+  return `/api/inventory/categories`
+}
+
+/**
+ * @summary Create an inventory category
+ */
+export const createInventoryCategory = async (inventoryCategoryInput: InventoryCategoryInput, options?: Parameters<typeof customFetch>[1]): Promise<InventoryCategory> => {
+
+  return customFetch<InventoryCategory>(getCreateInventoryCategoryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(inventoryCategoryInput)
+  }
+);}
+
+
+
+
+
+export const getCreateInventoryCategoryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInventoryCategory>>, TError,{data: BodyType<InventoryCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createInventoryCategory>>, TError,{data: BodyType<InventoryCategoryInput>}, TContext> => {
+
+const mutationKey = ['createInventoryCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createInventoryCategory>>, {data: BodyType<InventoryCategoryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createInventoryCategory(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateInventoryCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof createInventoryCategory>>>
+    export type CreateInventoryCategoryMutationBody = BodyType<InventoryCategoryInput>
+    export type CreateInventoryCategoryMutationError = ErrorType<void>
+
+    /**
+ * @summary Create an inventory category
+ */
+export const useCreateInventoryCategory = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createInventoryCategory>>, TError,{data: BodyType<InventoryCategoryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createInventoryCategory>>,
+        TError,
+        {data: BodyType<InventoryCategoryInput>},
+        TContext
+      > => {
+      return useMutation(getCreateInventoryCategoryMutationOptions(options));
+    }
+
+export const getDeleteInventoryCategoryUrl = (id: number,) => {
+
+
+
+
+  return `/api/inventory/categories/${id}`
+}
+
+/**
+ * @summary Delete an inventory category
+ */
+export const deleteInventoryCategory = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteInventoryCategoryUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteInventoryCategoryMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteInventoryCategory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteInventoryCategory>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteInventoryCategory'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteInventoryCategory>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteInventoryCategory(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteInventoryCategoryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteInventoryCategory>>>
+
+    export type DeleteInventoryCategoryMutationError = ErrorType<void>
+
+    /**
+ * @summary Delete an inventory category
+ */
+export const useDeleteInventoryCategory = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteInventoryCategory>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteInventoryCategory>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteInventoryCategoryMutationOptions(options));
+    }
 
 export const getGetInventoryItemUrl = (id: number,) => {
 

@@ -39,6 +39,18 @@ export interface InventoryItem {
   updatedAt: string;
 }
 
+export interface InventoryCategory {
+  id: number;
+  name: string;
+  itemCount: number;
+  unitCount: number;
+}
+
+export interface InventoryCategoryInput {
+  /** @minLength 1 */
+  name: string;
+}
+
 export interface InventoryItemInput {
   /** @minLength 1 */
   name: string;
